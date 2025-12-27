@@ -11,6 +11,9 @@ Where inquiry is not constrained by predefined limitations — an open forum for
 - **Deep question generator**:
   - Uses **GPT‑5.2** + **Gemini 3**
   - Returns whether **both models agree** the question is “deep” (backed by both)
+- **Surface question generator**:
+  - Works without keys
+  - Toggle between **Surface/Deep** in the UI
 
 ## Run locally
 

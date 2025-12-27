@@ -444,6 +444,7 @@ app.post("/api/deep-question", async (req, res) => {
 
   res.json({
     ok: true,
+    mode: "deep",
     topic,
     question,
     backing: {
@@ -451,6 +452,38 @@ app.post("/api/deep-question", async (req, res) => {
       gpt: { model: openaiModel, ...gpt },
       gemini: { model: geminiModel, ...gemini },
     },
+    sources,
+    verification,
+  });
+});
+
+function pickSurfaceQuestion(topic) {
+  const t = String(topic).trim();
+  const templates = [
+    `What are the most important ideas, terms, and assumptions people bring to "${t}", and which of them deserve questioning first?`,
+    `What are the strongest arguments on different sides of "${t}", and what evidence would change each side’s mind?`,
+    `What does "${t}" mean in practice, and what are its most common misconceptions?`,
+    `What are the near-term and long-term implications of "${t}", and who benefits or loses under different interpretations?`,
+    `If you had to explain "${t}" to a smart skeptic, what would you say—and what would you intentionally leave uncertain for discussion?`,
+  ];
+  // Deterministic-ish pick based on topic length/content (no crypto needed).
+  let h = 0;
+  for (let i = 0; i < t.length; i += 1) h = (h * 31 + t.charCodeAt(i)) >>> 0;
+  return templates[h % templates.length];
+}
+
+app.post("/api/surface-question", async (req, res) => {
+  const topic = clampString(String(req.body?.topic || ""), 200);
+  if (!topic) return res.status(400).json({ ok: false, error: "Missing JSON body field 'topic'." });
+
+  const question = pickSurfaceQuestion(topic);
+  const { sources, verification } = await validateAcrossSources(topic);
+
+  res.json({
+    ok: true,
+    mode: "surface",
+    topic,
+    question,
     sources,
     verification,
   });

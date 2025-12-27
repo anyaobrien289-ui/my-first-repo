@@ -75,13 +75,19 @@
 
           <div class="row">
             <div class="field">
-              <label>Deep question (backed by GPT‑5.2 + Gemini 3)</label>
+              <label id="qModeLabel">Surface question (no predefined limits)</label>
               <div class="deep-row">
-                <input id="deepTopic" type="text" placeholder="e.g. 'privacy in the age of AI'" maxlength="200" />
-                <button id="generateDeep" class="btn" type="button">Generate</button>
+                <input id="questionTopic" type="text" placeholder="e.g. 'privacy in the age of AI'" maxlength="200" />
+                <button id="toggleDepth" class="btn" type="button" title="Toggle deep/surface mode">Deep mode</button>
               </div>
               <div class="micro">
-                Uses server endpoint <code>/api/deep-question</code>. If keys aren’t configured, it will return an actionable error.
+                <span id="qModeHelp">
+                  Surface mode generates broad, open-ended prompts without model keys.
+                </span>
+                Safety boundaries remain on; illegal/harmful requests are not supported.
+              </div>
+              <div class="micro" style="margin-top: 10px">
+                <button id="generateQuestion" class="btn btn-secondary" type="button">Generate question</button>
               </div>
             </div>
           </div>
@@ -92,9 +98,9 @@
             </div>
           </div>
 
-          <div id="deepResults" class="results">
+          <div id="questionResults" class="results">
             <div class="empty">
-              Click <b>Generate</b> to get a deep question that is backed by both models.
+              Click <b>Generate question</b>. Use <b>Deep mode</b> for GPT‑5.2 + Gemini 3 backing.
             </div>
           </div>
         </section>

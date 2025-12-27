@@ -144,7 +144,7 @@ function renderValidation(data) {
   `;
 }
 
-function renderDeepQuestion(resp) {
+function renderQuestion(resp) {
   const ok = !!resp?.ok;
   if (!ok) {
     const err = resp?.error || "Request failed.";
@@ -161,8 +161,14 @@ function renderDeepQuestion(resp) {
     `;
   }
 
+  const mode = resp?.mode || (resp?.backing ? "deep" : "surface");
   const backed = resp?.backing?.bothAgree === true;
-  const statusPill = backed ? pill("good", "Backed by both") : pill("warn", "Disagreement / partial backing");
+  const statusPill =
+    mode === "deep"
+      ? backed
+        ? pill("good", "Backed by both")
+        : pill("warn", "Disagreement / partial backing")
+      : pill("neutral", "Surface mode");
 
   const q = resp?.question || "";
   const gpt = resp?.backing?.gpt || {};
@@ -192,16 +198,22 @@ function renderDeepQuestion(resp) {
       <div class="kpi"><div class="k">Topic</div><div class="v">${escapeHtml(resp?.topic || "")}</div></div>
     </div>
     <div class="section">
-      <div class="section-title">Deep question</div>
+      <div class="section-title">${mode === "deep" ? "Deep question" : "Surface question"}</div>
       <div class="item"><div class="item-sub">${escapeHtml(q)}</div></div>
     </div>
-    <div class="section">
-      <div class="section-title">Model backing</div>
-      <div class="list">
-        ${renderModel(gpt)}
-        ${renderModel(gem)}
-      </div>
-    </div>
+    ${
+      mode === "deep"
+        ? `
+          <div class="section">
+            <div class="section-title">Model backing</div>
+            <div class="list">
+              ${renderModel(gpt)}
+              ${renderModel(gem)}
+            </div>
+          </div>
+        `
+        : ""
+    }
   `;
 }
 
@@ -298,9 +310,29 @@ const topicEl = $("topic");
 const validateBtn = $("validate");
 const resultsEl = $("results");
 
-const deepTopicEl = $("deepTopic");
-const generateDeepBtn = $("generateDeep");
-const deepResultsEl = $("deepResults");
+const qModeLabelEl = $("qModeLabel");
+const qModeHelpEl = $("qModeHelp");
+const questionTopicEl = $("questionTopic");
+const toggleDepthBtn = $("toggleDepth");
+const generateQuestionBtn = $("generateQuestion");
+const questionResultsEl = $("questionResults");
+
+let questionMode = localStorage.getItem("panel:questionMode") || "surface"; // "surface" | "deep"
+
+function syncQuestionModeUI() {
+  if (questionMode === "deep") {
+    qModeLabelEl.textContent = "Deep question (backed by GPT‑5.2 + Gemini 3)";
+    qModeHelpEl.innerHTML =
+      'Deep mode uses <code>/api/deep-question</code> and requires <code>OPENAI_API_KEY</code> + <code>GEMINI_API_KEY</code>.';
+    toggleDepthBtn.textContent = "Surface mode";
+  } else {
+    qModeLabelEl.textContent = "Surface question (no predefined limits)";
+    qModeHelpEl.textContent = "Surface mode generates broad, open-ended prompts without model keys.";
+    toggleDepthBtn.textContent = "Deep mode";
+  }
+}
+
+syncQuestionModeUI();
 
 validateBtn.addEventListener("click", async () => {
   const q = (topicEl.value || "").trim();
@@ -318,23 +350,35 @@ validateBtn.addEventListener("click", async () => {
   }
 });
 
-generateDeepBtn.addEventListener("click", async () => {
-  const topic = (deepTopicEl.value || "").trim();
+toggleDepthBtn.addEventListener("click", () => {
+  questionMode = questionMode === "deep" ? "surface" : "deep";
+  localStorage.setItem("panel:questionMode", questionMode);
+  syncQuestionModeUI();
+});
+
+generateQuestionBtn.addEventListener("click", async () => {
+  const topic = (questionTopicEl.value || "").trim();
   if (!topic) return;
-  setLoading(generateDeepBtn, true, "Generating…");
-  deepResultsEl.innerHTML = `<div class="empty">Requesting both models and checking agreement…</div>`;
+
+  const isDeep = questionMode === "deep";
+  setLoading(generateQuestionBtn, true, "Generating…");
+  questionResultsEl.innerHTML = `<div class="empty">${
+    isDeep ? "Requesting both models and checking agreement…" : "Generating a broad, open-ended question…"
+  }</div>`;
+
   try {
-    const res = await fetch(`/api/deep-question`, {
+    const endpoint = isDeep ? "/api/deep-question" : "/api/surface-question";
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ topic }),
     });
     const json = await res.json();
-    deepResultsEl.innerHTML = renderDeepQuestion(json);
+    questionResultsEl.innerHTML = renderQuestion(json);
   } catch (err) {
-    deepResultsEl.innerHTML = `<div class="empty">Error: ${escapeHtml(String(err && err.message ? err.message : err))}</div>`;
+    questionResultsEl.innerHTML = `<div class="empty">Error: ${escapeHtml(String(err && err.message ? err.message : err))}</div>`;
   } finally {
-    setLoading(generateDeepBtn, false, "");
+    setLoading(generateQuestionBtn, false, "");
   }
 });
 
