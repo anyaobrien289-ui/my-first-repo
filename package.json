@@ -1,0 +1,20 @@
+{
+  "name": "live-question-panel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Live panel for open-ended discussion with multi-source validation and cross-verification.",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "NODE_ENV=development node server/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
+
