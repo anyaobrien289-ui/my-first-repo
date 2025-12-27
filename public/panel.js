@@ -179,7 +179,7 @@ function renderDeepQuestion(resp) {
         <div class="item-title">${escapeHtml(name)}</div>
         <div class="item-sub">
           ${pill(kind, depth ? "Marks as deep" : "Does not mark as deep")}
-          ${typeof conf === "number" ? `&nbsp;${pill("pill", `confidence ${Math.round(conf * 100)}%`)}` : ""}
+          ${typeof conf === "number" ? `&nbsp;${pill("neutral", `confidence ${Math.round(conf * 100)}%`)}` : ""}
         </div>
         ${reasons.length ? `<div class="micro">${escapeHtml(reasons.join(" • "))}</div>` : ""}
       </div>

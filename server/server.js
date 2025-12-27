@@ -295,36 +295,6 @@ app.get("/api/validate", async (req, res) => {
   res.json({ ok: true, query: q, sources, verification });
 });
 
-async function callOpenAIJson({ apiKey, model, schemaHint, prompt, timeoutMs = 20000 }) {
-  const url = "https://api.openai.com/v1/chat/completions";
-  const body = {
-    model,
-    temperature: 0.4,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a careful assistant. Output ONLY strict JSON, no markdown, no extra text. If you cannot comply, output a JSON object with an error field.",
-      },
-      {
-        role: "user",
-        content: `${schemaHint}\n\n${prompt}`,
-      },
-    ],
-    response_format: { type: "json_object" },
-  };
-
-  const res = await fetchJson(url, {
-    timeoutMs,
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      "content-type": "application/json",
-    },
-    // fetchJson only supports GET, so implement POST here manually
-  });
-  return res;
-}
-
 async function fetchJsonPost(url, body, { timeoutMs = 20000, headers = {} } = {}) {
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), timeoutMs);
@@ -360,11 +330,7 @@ async function callOpenAIBacking({ apiKey, model, topic }) {
 
   const prompt = `Generate ONE deep, open-ended discussion question about the topic: "${topic}".
 
-Constraints:
-- Must be open-ended (not yes/no).
-- Must allow broad exploration (minimal limitations), but still be coherent.
-- Should invite multiple perspectives and surface-level + deep angles.
-- Avoid requiring private data or unsafe instructions.
+Goal: inquiry should not be constrained by predefined limitations; the question should invite unrestricted intellectual exploration while staying coherent and safe.
 
 Then assess the question for depth and open-endedness. confidence must be between 0 and 1.
 reasons must be 2-5 short bullets as strings.`;
@@ -401,11 +367,7 @@ async function callGeminiBacking({ apiKey, model, topic }) {
     "Return JSON exactly shaped like: {\"question\": string, \"assessment\": {\"is_deep\": boolean, \"confidence\": number, \"reasons\": string[]}}";
   const prompt = `Generate ONE deep, open-ended discussion question about the topic: "${topic}".
 
-Constraints:
-- Must be open-ended (not yes/no).
-- Must allow broad exploration (minimal limitations), but still be coherent.
-- Should invite multiple perspectives and surface-level + deep angles.
-- Avoid requiring private data or unsafe instructions.
+Goal: inquiry should not be constrained by predefined limitations; the question should invite unrestricted intellectual exploration while staying coherent and safe.
 
 Then assess the question for depth and open-endedness. confidence must be between 0 and 1.
 reasons must be 2-5 short bullets as strings.
@@ -570,7 +532,11 @@ io.on("connection", (socket) => {
 // Seed a default room
 getOrCreateRoom("General");
 
-server.listen(PORT, () => {
-  console.log(`Live panel running on http://localhost:${PORT}/panel`);
-});
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`Live panel running on http://localhost:${PORT}/panel`);
+  });
+}
+
+module.exports = { app, server };
 

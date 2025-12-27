@@ -338,6 +338,12 @@ select:focus {
   background: rgba(255, 92, 122, 0.08);
 }
 
+.pill.neutral {
+  border-color: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .section {
   margin-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
