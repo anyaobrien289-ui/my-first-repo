@@ -2,6 +2,7 @@
 
 const path = require("path");
 const http = require("http");
+const crypto = require("crypto");
 
 const express = require("express");
 const { Server } = require("socket.io");
@@ -88,12 +89,13 @@ function requirePanelAuth(req, res, next) {
 }
 
 const publicDir = path.join(__dirname, "..", "public");
-// Protect the panel + static assets + APIs when auth is enabled
-app.use(requirePanelAuth);
-app.use(express.static(publicDir, { extensions: ["html"] }));
+// Serve static assets (js/css) without auth.
+// Panel HTML itself is protected via explicit routes below.
+app.use(express.static(publicDir, { index: false }));
 
 app.get("/", (_req, res) => res.redirect("/panel"));
-app.get("/panel", (_req, res) => res.sendFile(path.join(publicDir, "panel.html")));
+app.get("/panel", requirePanelAuth, (_req, res) => res.sendFile(path.join(publicDir, "panel.html")));
+app.get("/panel.html", requirePanelAuth, (_req, res) => res.sendFile(path.join(publicDir, "panel.html")));
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, time: new Date().toISOString() });
@@ -361,6 +363,9 @@ async function validateAcrossSources(q) {
 
   return { sources: { wikipedia, wikidata, openalex, crossref }, verification };
 }
+
+// Protect APIs when auth is enabled
+app.use("/api", requirePanelAuth);
 
 app.get("/api/validate", async (req, res) => {
   const q = clampString(String(req.query.q || ""), 200);

@@ -26,6 +26,33 @@ npm start
 
 Open: `http://localhost:3000/panel`
 
+## Private link (recommended)
+
+Set a token and bind to localhost (not publicly reachable from your network):
+
+```bash
+export PANEL_ACCESS_TOKEN="change-me"
+export HOST="127.0.0.1"
+npm start
+```
+
+Open: `http://127.0.0.1:3000/panel?token=change-me`
+
+### If you need a “site link” (remote preview / port forwarding)
+
+To access from outside the machine (preview URL), you must bind to all interfaces:
+
+```bash
+export PANEL_ACCESS_TOKEN="change-me"
+export HOST="0.0.0.0"
+export PORT="3000"
+npm start
+```
+
+Then use your environment’s forwarded/preview URL and open:
+
+- `https://<your-forwarded-host>/panel?token=change-me`
+
 ## Environment variables (for “deep question” backing)
 
 The panel works without any keys for chat + multi-source validation.

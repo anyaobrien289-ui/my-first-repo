@@ -217,9 +217,17 @@ function renderQuestion(resp) {
   `;
 }
 
+const urlToken = new URLSearchParams(window.location.search).get("token") || "";
+
+function apiFetch(input, init = {}) {
+  const headers = new Headers(init.headers || {});
+  if (urlToken) headers.set("X-Panel-Token", urlToken);
+  return fetch(input, { ...init, headers });
+}
+
 // ---------------- Live chat ----------------
 
-const socket = io();
+const socket = io({ auth: urlToken ? { token: urlToken } : {} });
 
 const nameEl = $("name");
 const roomEl = $("room");
@@ -340,7 +348,7 @@ validateBtn.addEventListener("click", async () => {
   setLoading(validateBtn, true, "Validating…");
   resultsEl.innerHTML = `<div class="empty">Fetching sources and cross-verifying…</div>`;
   try {
-    const res = await fetch(`/api/validate?q=${encodeURIComponent(q)}`);
+    const res = await apiFetch(`/api/validate?q=${encodeURIComponent(q)}`);
     const json = await res.json();
     resultsEl.innerHTML = renderValidation(json);
   } catch (err) {
@@ -368,7 +376,7 @@ generateQuestionBtn.addEventListener("click", async () => {
 
   try {
     const endpoint = isDeep ? "/api/deep-question" : "/api/surface-question";
-    const res = await fetch(endpoint, {
+    const res = await apiFetch(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ topic }),
