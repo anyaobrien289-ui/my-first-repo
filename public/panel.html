@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Panel</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="dot"></div>
+          <div>
+            <div class="brand-title">Live Discussion Panel</div>
+            <div class="brand-subtitle">Where inquiry is not constrained by predefined limitations — an open forum for intellectual exploration</div>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <a class="link" href="/api/health" target="_blank" rel="noreferrer">health</a>
+          <a class="link" href="/api/validate?q=example" target="_blank" rel="noreferrer">validate api</a>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="card chat">
+          <div class="card-title">Live discussion</div>
+          <div class="row">
+            <div class="field">
+              <label>Display name</label>
+              <input id="name" type="text" placeholder="e.g. Sam" maxlength="40" />
+            </div>
+            <div class="field">
+              <label>Room</label>
+              <div class="room-row">
+                <select id="room"></select>
+                <button id="createRoom" class="btn btn-secondary" type="button">Create</button>
+              </div>
+            </div>
+            <div class="field field-tight">
+              <label>&nbsp;</label>
+              <button id="joinRoom" class="btn" type="button">Join</button>
+            </div>
+          </div>
+
+          <div id="messages" class="messages" aria-live="polite"></div>
+
+          <form id="sendForm" class="send" autocomplete="off">
+            <textarea
+              id="message"
+              placeholder="Share a thought, ask a question, challenge an assumption…"
+              rows="3"
+              maxlength="20000"
+            ></textarea>
+            <div class="send-actions">
+              <div class="hint">Shift+Enter for newline</div>
+              <button class="btn" type="submit">Send</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card explorer">
+          <div class="card-title">Question explorer</div>
+
+          <div class="row">
+            <div class="field">
+              <label>Topic or claim to validate</label>
+              <input id="topic" type="text" placeholder="e.g. 'CRISPR gene editing'" maxlength="200" />
+            </div>
+            <div class="field field-tight">
+              <label>&nbsp;</label>
+              <button id="validate" class="btn btn-secondary" type="button">Validate</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="field">
+              <label id="qModeLabel">Surface question (no predefined limits)</label>
+              <div class="deep-row">
+                <input id="questionTopic" type="text" placeholder="e.g. 'privacy in the age of AI'" maxlength="200" />
+                <button id="toggleDepth" class="btn" type="button" title="Toggle deep/surface mode">Deep mode</button>
+              </div>
+              <div class="micro">
+                <span id="qModeHelp">
+                  Surface mode generates broad, open-ended prompts without model keys.
+                </span>
+                Safety boundaries remain on; illegal/harmful requests are not supported.
+              </div>
+              <div class="micro" style="margin-top: 10px">
+                <button id="generateQuestion" class="btn btn-secondary" type="button">Generate question</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="results" class="results">
+            <div class="empty">
+              Run <b>Validate</b> to cross-verify across Wikipedia, Wikidata, OpenAlex, and Crossref.
+            </div>
+          </div>
+
+          <div id="questionResults" class="results">
+            <div class="empty">
+              Click <b>Generate question</b>. Use <b>Deep mode</b> for GPT‑5.2 + Gemini 3 backing.
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/panel.js"></script>
+  </body>
+</html>
+
