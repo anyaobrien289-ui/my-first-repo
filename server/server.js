@@ -7,6 +7,7 @@ const express = require("express");
 const { Server } = require("socket.io");
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+const HOST = process.env.HOST ? String(process.env.HOST) : "127.0.0.1";
 
 const app = express();
 app.disable("x-powered-by");
@@ -14,7 +15,81 @@ app.disable("x-powered-by");
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
 
+function decodeBasicAuth(headerValue) {
+  // "Basic base64(user:pass)"
+  if (typeof headerValue !== "string") return null;
+  const m = headerValue.match(/^Basic\s+(.+)$/i);
+  if (!m) return null;
+  try {
+    const decoded = Buffer.from(m[1], "base64").toString("utf8");
+    const idx = decoded.indexOf(":");
+    if (idx < 0) return null;
+    return { user: decoded.slice(0, idx), pass: decoded.slice(idx + 1) };
+  } catch (_e) {
+    return null;
+  }
+}
+
+function safeEqual(a, b) {
+  // Constant-time-ish compare for short strings
+  const aa = Buffer.from(String(a || ""), "utf8");
+  const bb = Buffer.from(String(b || ""), "utf8");
+  if (aa.length !== bb.length) return false;
+  return crypto.timingSafeEqual(aa, bb);
+}
+
+function getAuthConfig() {
+  const token = getEnv("PANEL_ACCESS_TOKEN");
+  const user = getEnv("PANEL_USERNAME");
+  const pass = getEnv("PANEL_PASSWORD");
+  const enabled = Boolean(token || pass); // token OR password enables auth
+  return { enabled, token, user, pass };
+}
+
+function isAuthorizedRequest(req) {
+  const { enabled, token, user, pass } = getAuthConfig();
+  if (!enabled) return true;
+
+  // Token auth (preferred for links): header or query param
+  if (token) {
+    const headerToken = req.headers["x-panel-token"];
+    const queryToken = req.query?.token;
+    const t = typeof headerToken === "string" ? headerToken : typeof queryToken === "string" ? queryToken : "";
+    if (t && safeEqual(t, token)) return true;
+  }
+
+  // Basic auth (browser prompt)
+  if (pass) {
+    const creds = decodeBasicAuth(req.headers.authorization);
+    if (!creds) return false;
+    const uOk = user ? safeEqual(creds.user, user) : true;
+    const pOk = safeEqual(creds.pass, pass);
+    if (uOk && pOk) return true;
+  }
+
+  return false;
+}
+
+function requirePanelAuth(req, res, next) {
+  if (isAuthorizedRequest(req)) return next();
+
+  const { token, pass } = getAuthConfig();
+  // If password is configured, trigger browser basic-auth prompt.
+  if (pass) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="Live Panel", charset="UTF-8"');
+  }
+  return res.status(401).json({
+    ok: false,
+    error: "Unauthorized.",
+    hint: token
+      ? "Provide PANEL_ACCESS_TOKEN via ?token=... or header X-Panel-Token."
+      : "Configure PANEL_PASSWORD and retry with HTTP Basic auth.",
+  });
+}
+
 const publicDir = path.join(__dirname, "..", "public");
+// Protect the panel + static assets + APIs when auth is enabled
+app.use(requirePanelAuth);
 app.use(express.static(publicDir, { extensions: ["html"] }));
 
 app.get("/", (_req, res) => res.redirect("/panel"));
@@ -496,6 +571,29 @@ const io = new Server(server, {
   cors: { origin: true, methods: ["GET", "POST"] },
 });
 
+io.use((socket, next) => {
+  const { enabled, token, user, pass } = getAuthConfig();
+  if (!enabled) return next();
+
+  // Token via Socket.IO auth payload or querystring
+  const t =
+    (socket.handshake.auth && typeof socket.handshake.auth.token === "string" && socket.handshake.auth.token) ||
+    (socket.handshake.query && typeof socket.handshake.query.token === "string" && socket.handshake.query.token) ||
+    "";
+  if (token && t && safeEqual(t, token)) return next();
+
+  // Basic auth via headers (less convenient for browser JS, but supports proxies)
+  if (pass) {
+    const creds = decodeBasicAuth(socket.handshake.headers.authorization);
+    if (!creds) return next(new Error("unauthorized"));
+    const uOk = user ? safeEqual(creds.user, user) : true;
+    const pOk = safeEqual(creds.pass, pass);
+    if (uOk && pOk) return next();
+  }
+
+  return next(new Error("unauthorized"));
+});
+
 const rooms = new Map(); // roomName -> { createdAt, messages: [{id, ts, name, text}] }
 const MAX_MESSAGE_CHARS = 20000;
 const MAX_MESSAGES_PER_ROOM = 500;
@@ -566,8 +664,8 @@ io.on("connection", (socket) => {
 getOrCreateRoom("General");
 
 if (require.main === module) {
-  server.listen(PORT, () => {
-    console.log(`Live panel running on http://localhost:${PORT}/panel`);
+  server.listen(PORT, HOST, () => {
+    console.log(`Live panel running on http://${HOST}:${PORT}/panel`);
   });
 }
 
