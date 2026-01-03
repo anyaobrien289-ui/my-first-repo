@@ -13,12 +13,17 @@ It is designed as a **modular “brain”**:
 #### Backend (API)
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r backend/requirements.txt
 uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Then open `frontend/index.html` in a browser (or serve it with any static file server) and point it at `http://localhost:8000`.
+Then open the UI at:
+- `http://localhost:8000/panel/` (best on mobile)
+- `http://localhost:8000/ui/` (desktop UI)
+- `http://localhost:8000/` (landing page with links)
+
+> On iPhone, `localhost` refers to the phone. Use a forwarded/public URL (remote workspace) or your computer’s LAN IP (same Wi‑Fi).
 
 #### Configuration (LLM provider)
 
@@ -48,6 +53,29 @@ No single repo can ship literal infinite compute. This implementation is **archi
 - `POST /v1/index` — add text to “brain memory”
 - `POST /v1/search` — search memory (BM25)
 - `POST /v1/generate` — generate “artifacts” (returns files as `{path, content}`)
+
+### Telegram bot (optional)
+
+This repo includes a Telegram bot that forwards messages to the API.
+
+1) Install bot deps:
+
+```bash
+pip install -r backend/requirements-bot.txt
+```
+
+2) Set env vars (do **not** commit your token):
+
+```bash
+export TELEGRAM_BOT_TOKEN="...your token..."
+export BRAIN_API_BASE_URL="http://localhost:8000"
+```
+
+3) Run the bot:
+
+```bash
+python3 backend/bot/telegram_bot.py
+```
 
 ### Safety note
 
