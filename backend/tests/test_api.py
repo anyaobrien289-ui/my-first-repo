@@ -22,6 +22,12 @@ def test_ui_route_exists():
     assert r.status_code == 200
     assert "Universal Search Interface" in r.text
 
+def test_panel_route_exists():
+    c = TestClient(app)
+    r = c.get("/panel/")
+    assert r.status_code == 200
+    assert "Ask. Create. Generate." in r.text
+
 
 def test_index_search_query_roundtrip():
     c = TestClient(app)

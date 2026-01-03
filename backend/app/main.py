@@ -61,6 +61,15 @@ _EMBEDDED_UI_HTML = r"""
       pre { margin: 10px 0 0; padding: 12px; border-radius: 12px; background: #0b1220; border:1px solid var(--border);
             overflow:auto; white-space: pre-wrap; word-break: break-word; }
       a { color: var(--accent); }
+
+      /* Mobile: make the search box big and obvious */
+      @media (max-width: 640px) {
+        .wrap { padding: 24px 14px; }
+        .hero { font-size: 30px; }
+        .bar { grid-template-columns: 1fr; }
+        select, input, button { font-size: 16px; padding: 14px; } /* iOS tap-friendly */
+        .hint { font-size: 15px; }
+      }
     </style>
   </head>
   <body>
@@ -231,7 +240,8 @@ async def root(request: Request):
       <div class="card">
         <div class="muted">Click to view your creation:</div>
         <div class="links">
-          <div><a href="{ui_url}">Open the UI search box</a> <span class="muted">(recommended)</span></div>
+          <div><a href="{base}/panel/">Open the search panel</a> <span class="muted">(best on iPhone)</span></div>
+          <div><a href="{ui_url}">Open the UI search box</a> <span class="muted">(/ui/)</span></div>
           <div><a href="{docs_url}">Open API docs</a> <span class="muted">(/docs)</span></div>
           <div><a href="{health_url}">Open health check</a> <span class="muted">(/healthz)</span></div>
         </div>
@@ -266,6 +276,18 @@ async def ui_fallback() -> HTMLResponse:
     behaves oddly), this guarantees /ui/ still works.
     """
     # If the file exists, prefer serving it for easier editing.
+    index = _FRONTEND_DIR / "index.html"
+    if index.exists():
+        return HTMLResponse(index.read_text(encoding="utf-8"))
+    return HTMLResponse(_EMBEDDED_UI_HTML)
+
+
+@app.get("/panel/", response_class=HTMLResponse)
+async def panel() -> HTMLResponse:
+    """
+    A dedicated "panel" URL for mobile users.
+    Always serves the embedded UI (or frontend/index.html if present).
+    """
     index = _FRONTEND_DIR / "index.html"
     if index.exists():
         return HTMLResponse(index.read_text(encoding="utf-8"))
