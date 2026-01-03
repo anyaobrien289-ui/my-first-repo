@@ -58,6 +58,8 @@ No single repo can ship literal infinite compute. This implementation is **archi
 
 This repo includes a Telegram bot that forwards messages to the API.
 
+**Important:** you pasted a bot token into chat. Treat it as compromised and **rotate it in BotFather** before using it.
+
 1) Install bot deps:
 
 ```bash
