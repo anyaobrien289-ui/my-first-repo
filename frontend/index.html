@@ -113,6 +113,31 @@
       a {
         color: var(--accent);
       }
+      .links {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .linkbtn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(11, 18, 32, 0.8);
+        text-decoration: none;
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1;
+      }
+      .linkbtn:hover {
+        border-color: #33506e;
+      }
+      .linkbtn .muted {
+        font-size: 12px;
+      }
     </style>
   </head>
   <body>
@@ -139,7 +164,14 @@
           <div class="row">
             <span class="pill">API</span>
             <input id="api" value="http://localhost:8000" />
-            <span class="muted">Tip: run backend then reload.</span>
+            <span class="links">
+              <a id="docsLink" class="linkbtn" href="http://localhost:8000/docs" target="_blank" rel="noopener noreferrer">
+                Docs <span class="muted">/docs</span>
+              </a>
+              <a id="healthLink" class="linkbtn" href="http://localhost:8000/healthz" target="_blank" rel="noopener noreferrer">
+                Health <span class="muted">/healthz</span>
+              </a>
+            </span>
           </div>
         </div>
 
@@ -155,6 +187,16 @@
 
     <script>
       const $ = (id) => document.getElementById(id);
+
+      function normalizeApiBase(v) {
+        return String(v || "").trim().replace(/\/+$/, "");
+      }
+
+      function syncLinks() {
+        const api = normalizeApiBase($("api").value) || "http://localhost:8000";
+        $("docsLink").href = `${api}/docs`;
+        $("healthLink").href = `${api}/healthz`;
+      }
 
       function pretty(x) {
         return JSON.stringify(x, null, 2);
@@ -180,7 +222,7 @@
       }
 
       async function run() {
-        const api = $("api").value.replace(/\/+$/, "");
+        const api = normalizeApiBase($("api").value);
         const mode = $("mode").value;
         const q = $("q").value.trim();
         $("meta").textContent = "";
@@ -218,6 +260,8 @@
       $("q").addEventListener("keydown", (e) => {
         if (e.key === "Enter") run();
       });
+      $("api").addEventListener("input", syncLinks);
+      syncLinks();
     </script>
   </body>
 </html>
