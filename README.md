@@ -70,12 +70,18 @@ pip install -r backend/requirements-bot.txt
 
 ```bash
 export TELEGRAM_BOT_TOKEN="...your token..."
-export BRAIN_API_BASE_URL="http://localhost:8000"
 ```
 
-3) Run the bot:
+3) Run the bot (no URL needed):
 
 ```bash
+python3 backend/bot/telegram_bot.py
+```
+
+Optional: if you *want* the bot to call a running API server instead of running the brain locally:
+
+```bash
+export BRAIN_API_BASE_URL="http://localhost:8000"
 python3 backend/bot/telegram_bot.py
 ```
 
