@@ -31,6 +31,127 @@ _FRONTEND_DIR = _REPO_ROOT / "frontend"
 if _FRONTEND_DIR.exists():
     app.mount("/ui", StaticFiles(directory=str(_FRONTEND_DIR), html=True), name="ui")
 
+_EMBEDDED_UI_HTML = r"""
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Universal AI Interface</title>
+    <style>
+      :root { --bg:#0b0f17; --muted:#94a3b8; --text:#e5e7eb; --border:#243244; --accent:#60a5fa; }
+      body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+             background: radial-gradient(1200px 700px at 20% 0%, #111c33, var(--bg)); color: var(--text); }
+      .wrap { max-width: 980px; margin: 0 auto; padding: 48px 20px; }
+      .title { font-size: 20px; letter-spacing: 0.3px; color: var(--muted); }
+      .hero { margin-top: 10px; font-size: 36px; font-weight: 700; }
+      .hint { margin-top: 10px; color: var(--muted); font-size: 14px; }
+      .bar { margin-top: 18px; display:grid; grid-template-columns: 160px 1fr 120px; gap:10px;
+             background: rgba(17,24,39,0.85); border:1px solid var(--border); padding:12px; border-radius:14px; }
+      select, input, button { border-radius: 10px; border:1px solid var(--border); background:#0b1220; color:var(--text);
+                              padding: 12px; font-size: 14px; outline:none; }
+      input { width: 100%; }
+      button { background: linear-gradient(180deg, #2563eb, #1d4ed8); border: 1px solid #1e40af; cursor:pointer; font-weight:600; }
+      button:disabled { opacity: 0.6; cursor:not-allowed; }
+      .grid { margin-top: 18px; display:grid; grid-template-columns: 1fr; gap: 12px; }
+      .card { background: rgba(17,24,39,0.7); border:1px solid var(--border); border-radius:14px; padding: 14px; }
+      .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+      .pill { display:inline-flex; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px;
+              color: var(--muted); background: rgba(11,18,32,0.6); }
+      pre { margin: 10px 0 0; padding: 12px; border-radius: 12px; background: #0b1220; border:1px solid var(--border);
+            overflow:auto; white-space: pre-wrap; word-break: break-word; }
+      a { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="title">Universal Search Interface</div>
+      <div class="hero">Ask. Create. Generate.</div>
+      <div class="hint"><strong style="color:#e5e7eb">Ask a question:</strong> type below and press <strong>Enter</strong> or click <strong>Go</strong>.</div>
+
+      <div class="bar">
+        <select id="mode">
+          <option value="query">Query (answer using memory)</option>
+          <option value="search">Search memory (BM25)</option>
+          <option value="generate">Generate files (JSON)</option>
+          <option value="index">Index memory (store text)</option>
+        </select>
+        <input id="q" placeholder="Try: Index: The capital of France is Paris" />
+        <button id="go">Go</button>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="row">
+            <span class="pill">API</span>
+            <span style="color: var(--muted)">This UI calls the API on the same host.</span>
+            <a href="/docs" target="_blank" rel="noopener noreferrer">Docs</a>
+            <a href="/healthz" target="_blank" rel="noopener noreferrer">Health</a>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row">
+            <span class="pill">Output</span>
+            <span class="pill" id="meta" style="display:none"></span>
+          </div>
+          <pre id="out">Ready.</pre>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const pretty = (x) => JSON.stringify(x, null, 2);
+      async function post(url, body) {
+        const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        const txt = await r.text();
+        let data = null;
+        try { data = JSON.parse(txt); } catch { data = { raw: txt }; }
+        if (!r.ok) throw new Error(`${r.status}: ${pretty(data)}`);
+        return data;
+      }
+      async function run() {
+        const mode = $("mode").value;
+        const q = $("q").value.trim();
+        $("meta").style.display = "none";
+        $("meta").textContent = "";
+        if (!q) return;
+        $("go").disabled = true;
+        $("out").textContent = "Working...";
+        try {
+          if (mode === "index") {
+            const text = q.startsWith("Index:") ? q.slice("Index:".length).trim() : q;
+            const data = await post(`/v1/index`, { text, metadata: { via: "ui" } });
+            $("meta").style.display = "inline-flex";
+            $("meta").textContent = `indexed id=${data.id}`;
+            $("out").textContent = pretty(data);
+          } else if (mode === "search") {
+            const data = await post(`/v1/search`, { q, k: 5 });
+            $("out").textContent = pretty(data);
+          } else if (mode === "generate") {
+            const data = await post(`/v1/generate`, { prompt: q, max_files: 5 });
+            $("meta").style.display = "inline-flex";
+            $("meta").textContent = `provider=${data.provider} model=${data.model || "n/a"}`;
+            $("out").textContent = pretty(data);
+          } else {
+            const data = await post(`/v1/query`, { q, mode: "query", top_k: 5 });
+            $("meta").style.display = "inline-flex";
+            $("meta").textContent = `provider=${data.provider} model=${data.model || "n/a"}`;
+            $("out").textContent = pretty(data);
+          }
+        } catch (e) {
+          $("out").textContent = String(e);
+        } finally {
+          $("go").disabled = false;
+        }
+      }
+      $("go").addEventListener("click", run);
+      $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") run(); });
+    </script>
+  </body>
+</html>
+""".strip()
+
 origins = ["*"]
 if settings.cors_allow_origins and settings.cors_allow_origins != "*":
     origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
@@ -132,6 +253,23 @@ async def root(request: Request):
     if not index.exists():
         raise HTTPException(status_code=404, detail="UI not found (missing frontend/index.html)")
     return FileResponse(str(index))
+
+
+@app.get("/ui/", response_class=HTMLResponse)
+@app.get("/ui/index.html", response_class=HTMLResponse)
+async def ui_fallback() -> HTMLResponse:
+    """
+    Embedded UI fallback.
+
+    If the StaticFiles mount is active, Starlette will usually serve /ui/ before
+    this route. If it isn't (or in some environments where static mounting
+    behaves oddly), this guarantees /ui/ still works.
+    """
+    # If the file exists, prefer serving it for easier editing.
+    index = _FRONTEND_DIR / "index.html"
+    if index.exists():
+        return HTMLResponse(index.read_text(encoding="utf-8"))
+    return HTMLResponse(_EMBEDDED_UI_HTML)
 
 
 @app.get("/healthz")
