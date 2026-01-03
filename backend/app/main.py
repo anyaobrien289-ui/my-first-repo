@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from .brain.engine import BrainEngine
 from .core.config import settings
@@ -19,6 +23,13 @@ from .llm.factory import get_llm
 from .memory.store import InMemoryBM25
 
 app = FastAPI(title="Universal AI Interface", version="0.1.0")
+
+# Serve the browser UI from the repo's /frontend folder (if present),
+# so users can just open http://localhost:8000/ and see the search box.
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_FRONTEND_DIR = _REPO_ROOT / "frontend"
+if _FRONTEND_DIR.exists():
+    app.mount("/ui", StaticFiles(directory=str(_FRONTEND_DIR), html=True), name="ui")
 
 origins = ["*"]
 if settings.cors_allow_origins and settings.cors_allow_origins != "*":
@@ -38,6 +49,14 @@ memory = InMemoryBM25()
 def _engine() -> BrainEngine:
     llm = get_llm()
     return BrainEngine(llm=llm, memory=memory)
+
+
+@app.get("/")
+async def root() -> FileResponse:
+    index = _FRONTEND_DIR / "index.html"
+    if not index.exists():
+        raise HTTPException(status_code=404, detail="UI not found (missing frontend/index.html)")
+    return FileResponse(str(index))
 
 
 @app.get("/healthz")

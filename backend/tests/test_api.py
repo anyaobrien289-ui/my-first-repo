@@ -9,6 +9,13 @@ def test_healthz():
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
 
+def test_root_serves_ui_if_present():
+    c = TestClient(app)
+    r = c.get("/")
+    assert r.status_code in (200, 404)
+    if r.status_code == 200:
+        assert "Universal Search Interface" in r.text
+
 
 def test_index_search_query_roundtrip():
     c = TestClient(app)
