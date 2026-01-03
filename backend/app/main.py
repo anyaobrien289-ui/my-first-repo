@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .brain.engine import BrainEngine
@@ -52,7 +52,11 @@ def _engine() -> BrainEngine:
 
 
 @app.get("/")
-async def root() -> FileResponse:
+async def root():
+    # Prefer redirecting to the mounted static UI to avoid edge cases with
+    # reverse proxies/content-types/caching.
+    if _FRONTEND_DIR.exists():
+        return RedirectResponse(url="/ui/")
     index = _FRONTEND_DIR / "index.html"
     if not index.exists():
         raise HTTPException(status_code=404, detail="UI not found (missing frontend/index.html)")
