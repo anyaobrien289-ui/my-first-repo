@@ -161,6 +161,186 @@ _EMBEDDED_UI_HTML = r"""
 </html>
 """.strip()
 
+_EMBEDDED_PANEL_HTML = r"""
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Search Panel</title>
+    <style>
+      :root { --bg:#0b0f17; --muted:#94a3b8; --text:#e5e7eb; --border:#243244; --accent:#60a5fa; --card: rgba(17,24,39,0.85); }
+      body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+             background: radial-gradient(1200px 700px at 20% 0%, #111c33, var(--bg)); color: var(--text); }
+      .wrap { max-width: 820px; margin: 0 auto; padding: 22px 14px 32px; }
+      h1 { margin: 0; font-size: 22px; letter-spacing: 0.2px; }
+      .muted { color: var(--muted); }
+      .card { margin-top: 12px; background: var(--card); border:1px solid var(--border); border-radius: 16px; padding: 14px; }
+      .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+      .btn, select, input { border-radius: 12px; border:1px solid var(--border); background:#0b1220; color:var(--text);
+                            padding: 14px; font-size: 16px; outline:none; }
+      input { width: 100%; }
+      .btn { background: linear-gradient(180deg, #2563eb, #1d4ed8); border: 1px solid #1e40af; font-weight: 700; cursor: pointer; }
+      .btn.secondary { background: rgba(11, 18, 32, 0.8); border:1px solid var(--border); font-weight: 600; }
+      .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+      .grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+      .bar { display:grid; grid-template-columns: 1fr; gap: 10px; }
+      pre { margin: 10px 0 0; padding: 12px; border-radius: 12px; background:#0b1220; border:1px solid var(--border);
+            overflow:auto; white-space: pre-wrap; word-break: break-word; }
+      a { color: var(--accent); text-decoration: none; font-weight: 700; }
+      a:hover { text-decoration: underline; }
+      .pill { display:inline-flex; border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px;
+              color: var(--muted); background: rgba(11,18,32,0.6); }
+      @media (min-width: 720px) {
+        .bar { grid-template-columns: 220px 1fr 140px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Live Search Panel</h1>
+      <div class="muted" style="margin-top:6px">Ask a question below. This panel calls the API on the same host.</div>
+
+      <div class="card">
+        <div class="bar">
+          <select id="mode" class="btn secondary" aria-label="mode">
+            <option value="query">Query</option>
+            <option value="search">Search memory</option>
+            <option value="generate">Generate files</option>
+            <option value="index">Index memory</option>
+          </select>
+          <input id="q" placeholder="Type your question…" inputmode="text" />
+          <button id="go" class="btn">Go</button>
+        </div>
+        <div style="margin-top:10px" class="row">
+          <span class="pill" id="status">checking…</span>
+          <a href="/docs" target="_blank" rel="noopener noreferrer">Docs</a>
+          <a href="/healthz" target="_blank" rel="noopener noreferrer">Health</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content: space-between;">
+          <div>
+            <div class="muted">Share this panel link:</div>
+            <div style="margin-top:6px"><a id="panelLink" href="/panel/">/panel/</a></div>
+          </div>
+          <div class="row">
+            <button id="copy" class="btn secondary" type="button">Copy link</button>
+            <button id="share" class="btn secondary" type="button">Share</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <span class="pill">Output</span>
+          <span class="pill" id="meta" style="display:none"></span>
+        </div>
+        <pre id="out">Ready.</pre>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const pretty = (x) => JSON.stringify(x, null, 2);
+      const absolutePanelUrl = () => `${window.location.origin}/panel/`;
+
+      function setLink() {
+        const u = absolutePanelUrl();
+        $("panelLink").href = u;
+        $("panelLink").textContent = u;
+      }
+
+      async function health() {
+        try {
+          const r = await fetch("/healthz", { cache: "no-store" });
+          if (!r.ok) throw new Error("bad");
+          $("status").textContent = "online";
+        } catch {
+          $("status").textContent = "offline";
+        }
+      }
+
+      async function post(url, body) {
+        const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        const txt = await r.text();
+        let data = null;
+        try { data = JSON.parse(txt); } catch { data = { raw: txt }; }
+        if (!r.ok) throw new Error(`${r.status}: ${pretty(data)}`);
+        return data;
+      }
+
+      async function run() {
+        const mode = $("mode").value;
+        const q = $("q").value.trim();
+        $("meta").style.display = "none";
+        $("meta").textContent = "";
+        if (!q) return;
+        $("go").disabled = true;
+        $("out").textContent = "Working...";
+        try {
+          if (mode === "index") {
+            const text = q.startsWith("Index:") ? q.slice("Index:".length).trim() : q;
+            const data = await post(`/v1/index`, { text, metadata: { via: "panel" } });
+            $("meta").style.display = "inline-flex";
+            $("meta").textContent = `indexed id=${data.id}`;
+            $("out").textContent = pretty(data);
+          } else if (mode === "search") {
+            const data = await post(`/v1/search`, { q, k: 5 });
+            $("out").textContent = pretty(data);
+          } else if (mode === "generate") {
+            const data = await post(`/v1/generate`, { prompt: q, max_files: 5 });
+            $("meta").style.display = "inline-flex";
+            $("meta").textContent = `provider=${data.provider} model=${data.model || "n/a"}`;
+            $("out").textContent = pretty(data);
+          } else {
+            const data = await post(`/v1/query`, { q, mode: "query", top_k: 5 });
+            $("meta").style.display = "inline-flex";
+            $("meta").textContent = `provider=${data.provider} model=${data.model || "n/a"}`;
+            $("out").textContent = pretty(data);
+          }
+        } catch (e) {
+          $("out").textContent = String(e);
+        } finally {
+          $("go").disabled = false;
+        }
+      }
+
+      $("go").addEventListener("click", run);
+      $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") run(); });
+
+      $("copy").addEventListener("click", async () => {
+        const u = absolutePanelUrl();
+        try {
+          await navigator.clipboard.writeText(u);
+          $("status").textContent = "copied";
+          setTimeout(health, 800);
+        } catch {
+          $("out").textContent = `Copy this link manually:\\n${u}`;
+        }
+      });
+
+      $("share").addEventListener("click", async () => {
+        const u = absolutePanelUrl();
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: "Live Search Panel", url: u });
+          } else {
+            await navigator.clipboard.writeText(u);
+            $("status").textContent = "copied";
+            setTimeout(health, 800);
+          }
+        } catch {}
+      });
+
+      setLink();
+      health();
+    </script>
+  </body>
+</html>
+""".strip()
+
 origins = ["*"]
 if settings.cors_allow_origins and settings.cors_allow_origins != "*":
     origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
@@ -288,10 +468,18 @@ async def panel() -> HTMLResponse:
     A dedicated "panel" URL for mobile users.
     Always serves the embedded UI (or frontend/index.html if present).
     """
-    index = _FRONTEND_DIR / "index.html"
-    if index.exists():
-        return HTMLResponse(index.read_text(encoding="utf-8"))
-    return HTMLResponse(_EMBEDDED_UI_HTML)
+    return HTMLResponse(_EMBEDDED_PANEL_HTML)
+
+
+@app.get("/panel/link", response_class=HTMLResponse)
+async def panel_link(request: Request) -> HTMLResponse:
+    """
+    Returns a simple clickable absolute link to the live panel.
+    Useful for copying/sending to mobile.
+    """
+    base = str(request.base_url).rstrip("/")
+    u = f"{base}/panel/"
+    return HTMLResponse(f'<a href="{u}">{u}</a>')
 
 
 @app.get("/healthz")
