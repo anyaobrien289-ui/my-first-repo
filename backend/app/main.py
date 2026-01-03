@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .brain.engine import BrainEngine
@@ -52,7 +52,78 @@ def _engine() -> BrainEngine:
 
 
 @app.get("/")
-async def root():
+async def root(request: Request):
+    """
+    Landing page that provides a clickable absolute URL to the UI.
+
+    In remote workspaces, users often can't use localhost directly; this page
+    builds links from the incoming Host so it's always clickable.
+    """
+    base = str(request.base_url).rstrip("/")
+    ui_url = f"{base}/ui/"
+    docs_url = f"{base}/docs"
+    health_url = f"{base}/healthz"
+
+    if _FRONTEND_DIR.exists():
+        return HTMLResponse(
+            f"""
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Universal AI Interface</title>
+    <style>
+      body {{
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        background: #0b0f17;
+        color: #e5e7eb;
+        margin: 0;
+        padding: 40px 18px;
+      }}
+      .wrap {{ max-width: 880px; margin: 0 auto; }}
+      .card {{
+        background: rgba(17, 24, 39, 0.8);
+        border: 1px solid #243244;
+        border-radius: 14px;
+        padding: 16px;
+      }}
+      a {{
+        color: #60a5fa;
+        font-weight: 700;
+        text-decoration: none;
+      }}
+      a:hover {{ text-decoration: underline; }}
+      .muted {{ color: #94a3b8; }}
+      code {{
+        background: #0b1220;
+        border: 1px solid #243244;
+        padding: 3px 6px;
+        border-radius: 8px;
+      }}
+      .links {{ display: grid; gap: 10px; margin-top: 12px; }}
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h2>Universal AI Interface</h2>
+      <div class="card">
+        <div class="muted">Click to view your creation:</div>
+        <div class="links">
+          <div><a href="{ui_url}">Open the UI search box</a> <span class="muted">(recommended)</span></div>
+          <div><a href="{docs_url}">Open API docs</a> <span class="muted">(/docs)</span></div>
+          <div><a href="{health_url}">Open health check</a> <span class="muted">(/healthz)</span></div>
+        </div>
+        <div class="muted" style="margin-top: 14px;">
+          If you still can’t reach this, make sure you’re using the environment’s forwarded/preview URL (not your laptop’s <code>localhost</code>).
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+            """.strip()
+        )
+
     # Prefer redirecting to the mounted static UI to avoid edge cases with
     # reverse proxies/content-types/caching.
     if _FRONTEND_DIR.exists():
